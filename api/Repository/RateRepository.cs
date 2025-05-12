@@ -63,5 +63,20 @@ namespace api.Repository
             await _apiclient.SaveChangesAsync();
             return existingCurrencie;
         }
+
+        public async Task UpdateRatesFromNBPAsync(List<ResponseItem> responseItems)
+        {
+            // Delete all existing rates and response items
+            _apiclient.Rates.RemoveRange(await _apiclient.Rates.ToListAsync());
+            _apiclient.ResponseItem.RemoveRange(await _apiclient.ResponseItem.ToListAsync());
+            await _apiclient.SaveChangesAsync();
+
+            // Add new data
+            foreach (var responseItem in responseItems)
+            {
+                await _apiclient.ResponseItem.AddAsync(responseItem);
+            }
+            await _apiclient.SaveChangesAsync();
+        }
     }
 }

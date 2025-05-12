@@ -11,16 +11,17 @@ namespace api.Mappers
     {
         public static RateDto ToRateDto(this Rate rateModel)
         {
-              return new RateDto
-              {
-                 Currency = rateModel.Currency,
-                 Code = rateModel.Code,
-                 Bid = rateModel.Bid,
-                 Ask = rateModel.Ask
-              };
+            return new RateDto
+            {
+                Id = rateModel.Id,
+                Currency = rateModel.Currency,
+                Code = rateModel.Code,
+                Bid = rateModel.Bid,
+                Ask = rateModel.Ask
+            };
         }
 
-         public static Rate ToRateFromCreateDTO(this CreateCurencieReaquestDto rateDto)
+        public static Rate ToRateFromCreateDTO(this CreateCurencieReaquestDto rateDto)
         {
             return new Rate
             {

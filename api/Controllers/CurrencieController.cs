@@ -18,18 +18,23 @@ namespace api.Controllers
     {
         private readonly ApplicationDBContex  _apiclient;
         private readonly IRateRepository _rateRepo;
-        public CurrencieController(ApplicationDBContex  apiclient, IRateRepository rateRepo)
+        private readonly INBPClient _nbpClient;
+
+        public CurrencieController(
+            ApplicationDBContex  apiclient, 
+            IRateRepository rateRepo,
+            INBPClient nbpClient)
         {
             _rateRepo=rateRepo;
             _apiclient= apiclient;
+            _nbpClient = nbpClient;
         }
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var Rates = await _rateRepo.GetAllAsync();
-            var RateDto=Rates.Select(s=>s.ToRateDto());
-
-            return Ok(Rates);
+            var rates = await _rateRepo.GetAllAsync();
+            var rateDtos = rates.Select(r => r.ToRateDto());
+            return Ok(rateDtos);
         }     
         [HttpGet("{id}")]
             public async Task<IActionResult> GetById([FromRoute] int id)
@@ -80,7 +85,19 @@ namespace api.Controllers
               
         }
 
-
-           
+        [HttpPost("update-from-nbp")]
+        public async Task<IActionResult> UpdateFromNBP()
+        {
+            try
+            {
+                var responseItems = await _nbpClient.GetExchangeRatesAsync();
+                await _rateRepo.UpdateRatesFromNBPAsync(responseItems);
+                return Ok(new { message = "Rates updated successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Failed to update rates: {ex.Message}" });
+            }
+        }
     }
 }

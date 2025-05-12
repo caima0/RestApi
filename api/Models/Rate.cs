@@ -14,5 +14,7 @@ namespace api.Models
          public required string Code { get; set; }= string.Empty;
          public required double Bid { get; set; }
          public required double Ask { get; set; }
+         public int? ResponseItemId { get; set; }
+         public ResponseItem? ResponseItem { get; set; }
     }
 }

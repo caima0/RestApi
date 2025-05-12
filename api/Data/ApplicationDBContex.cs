@@ -16,5 +16,14 @@ namespace api.Data
         }
         public DbSet<ResponseItem> ResponseItem {get; set;}
         public DbSet<Rate> Rates{get; set;}
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Rate>()
+                .HasOne(r => r.ResponseItem)
+                .WithMany(ri => ri.Rates)
+                .HasForeignKey(r => r.ResponseItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
     }
 }

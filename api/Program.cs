@@ -2,6 +2,7 @@ using api.Data;
 using api.Interfaces;
 using api.Repository;
 using api.Service;
+using api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -70,6 +71,7 @@ internal class Program
 
         builder.Services.AddScoped<IRateRepository, RateRepository>();
         builder.Services.AddSingleton<IUserMockInterface, UserMockService>();
+        builder.Services.AddHttpClient<INBPClient, NBPClient>();
 
         var app = builder.Build();
 

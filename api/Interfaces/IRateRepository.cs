@@ -14,6 +14,6 @@ namespace api.Interfaces
         Task<Rate> CreateAsync(Rate currencieModel);
         Task<Rate?> UpdateAsync (int id, UpdateCurencieReaquestDto rateDto);
         Task<Rate?> DeleteAsync(int id);
-
+        Task UpdateRatesFromNBPAsync(List<ResponseItem> responseItems);
     }
 }
