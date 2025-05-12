@@ -14,7 +14,6 @@ namespace api.Models
         public required string No { get; set; }
         public required string TradingDate { get; set; }
         public required string EffectiveDate { get; set; }
-        public required List<Rate> Rates { get; set; }
-
+        public ICollection<Rate> Rates { get; set; } = new List<Rate>();
     }
 }
