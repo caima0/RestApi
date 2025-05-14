@@ -36,10 +36,10 @@ namespace api.Controllers
             var rateDtos = rates.Select(r => r.ToRateDto());
             return Ok(rateDtos);
         }     
-        [HttpGet("{id}")]
-            public async Task<IActionResult> GetById([FromRoute] int id)
+        [HttpGet("{code}")]
+            public async Task<IActionResult> GetByCode([FromRoute] string code)
             {
-                var rate =await _rateRepo.GetByIdAsync(id);
+                var rate =await _rateRepo.GetByCodeAsync(code);
 
                 if(rate == null)
                 {
@@ -52,14 +52,14 @@ namespace api.Controllers
         {
              var currencieModel = RateDto.ToRateFromCreateDTO();
             await _rateRepo.CreateAsync(currencieModel);
-             return CreatedAtAction(nameof(GetById), new {id = currencieModel.Id}, currencieModel.ToRateDto());
+             return CreatedAtAction(nameof(GetByCode), new {code = currencieModel.Code}, currencieModel.ToRateDto());
 
         }
         [HttpPut]
-        [Route("{id}")]
-        public  async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpdateCurencieReaquestDto  updateDto)
+        [Route("{code}")]
+        public  async Task<IActionResult> Update([FromRoute] string code, [FromBody] UpdateCurencieReaquestDto  updateDto)
         {
-            var currencieModel =await _rateRepo.UpdateAsync(id,updateDto);
+            var currencieModel =await _rateRepo.UpdateAsync(code,updateDto);
 
             if(currencieModel==null)
             {
@@ -71,10 +71,10 @@ namespace api.Controllers
 
         }
         [HttpDelete]
-        [Route("{id}")]
-        public async Task<IActionResult> Delete([FromRoute] int id)
+        [Route("{code}")]
+        public async Task<IActionResult> Delete([FromRoute] string code)
         {
-             var currencieModel=await _rateRepo.DeleteAsync(id);
+             var currencieModel=await _rateRepo.DeleteAsync(code);
 
              if(currencieModel ==null)
              {

@@ -16,10 +16,13 @@ namespace api.Service
         private readonly List<UserDTo> _users= new List<UserDTo>();
 
         private readonly IConfiguration _configuration;
+        
+        private readonly IHttpContextAccessor _contextAccessor;
 
-        public UserMockService(IConfiguration configuration)
+        public UserMockService(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             _configuration = configuration;
+            _contextAccessor = httpContextAccessor;
         }
 
         public bool Register(UserDTo user)
@@ -41,19 +44,21 @@ namespace api.Service
 
         var key = _configuration.GetRequiredSection("JwtSettings")["SecretKey"] ?? throw new ArgumentNullException();
 
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new System.Security.Claims.ClaimsIdentity([new Claim(ClaimTypes.Name, user.Name)]),
-                Expires = DateTime.UtcNow.AddHours(1),
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256Signature)
-            };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
-
-
-
-
-    }
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+             Subject = new System.Security.Claims.ClaimsIdentity([new Claim(ClaimTypes.Name, user.Name)]),
+             Expires = DateTime.UtcNow.AddHours(1),
+             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256Signature)
+        };
+         var token = tokenHandler.CreateToken(tokenDescriptor);
+         return tokenHandler.WriteToken(token);
         
+    }
+
+     public UserDTo? GetCurrentUser()
+     {
+        var uniqName = _contextAccessor.HttpContext?.User. FindFirst(ClaimTypes.Name)?.Value; 
+        return _users.SingleOrDefault(item =>item.Name == uniqName);
+     }
     }
 }

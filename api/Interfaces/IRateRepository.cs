@@ -11,9 +11,10 @@ namespace api.Interfaces
     {
         Task<List<Rate>> GetAllAsync();
         Task<Rate?> GetByIdAsync(int id);
+        Task<Rate?> GetByCodeAsync(string code);
         Task<Rate> CreateAsync(Rate currencieModel);
-        Task<Rate?> UpdateAsync (int id, UpdateCurencieReaquestDto rateDto);
-        Task<Rate?> DeleteAsync(int id);
+        Task<Rate?> UpdateAsync (string code, UpdateCurencieReaquestDto rateDto);
+        Task<Rate?> DeleteAsync(string code);
         Task UpdateRatesFromNBPAsync(List<ResponseItem> responseItems);
     }
 }

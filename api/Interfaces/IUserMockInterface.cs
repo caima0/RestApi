@@ -10,5 +10,6 @@ namespace api.Interfaces
     {
         string? Authenticate(UserDTo user);
         bool Register(UserDTo user);
+        UserDTo? GetCurrentUser();
     }
 }

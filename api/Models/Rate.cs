@@ -8,8 +8,7 @@ namespace api.Models
     public class Rate
     {
     
-        public int Id { get; set; }
-        
+         public int Id { get; set; }
          public required string Currency { get; set; }= string.Empty;
          public required string Code { get; set; }= string.Empty;
          public required double Bid { get; set; }
