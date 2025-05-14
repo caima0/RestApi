@@ -25,9 +25,9 @@ namespace api.Repository
             return currencieModel;
         }
 
-        public async Task<Rate?> DeleteAsync(int id)
+        public async Task<Rate?> DeleteAsync(string code)
         {
-            var currencieModel = await _apiclient.Rates.FirstOrDefaultAsync(x => x.Id == id);
+            var currencieModel = await _apiclient.Rates.FirstOrDefaultAsync(x => x.Code == code);
 
             if (currencieModel==null)
             {
@@ -48,9 +48,14 @@ namespace api.Repository
             return await _apiclient.Rates.FindAsync(id);
         }
 
-        public async Task<Rate?> UpdateAsync(int id, UpdateCurencieReaquestDto rateDto)
+        public async Task<Rate?> GetByCodeAsync(string code)
         {
-            var existingCurrencie = await _apiclient.Rates.FirstOrDefaultAsync(x=>x.Id==id);
+            return await _apiclient.Rates.FirstOrDefaultAsync(x => x.Code == code);
+        }
+
+        public async Task<Rate?> UpdateAsync(string code, UpdateCurencieReaquestDto rateDto)
+        {
+            var existingCurrencie = await _apiclient.Rates.FirstOrDefaultAsync(x=>x.Code == code);
             if (existingCurrencie==null)
             {
                 return null;
@@ -71,11 +76,46 @@ namespace api.Repository
             _apiclient.ResponseItem.RemoveRange(await _apiclient.ResponseItem.ToListAsync());
             await _apiclient.SaveChangesAsync();
 
+            var newRatesToAddToDb = new List<Rate>();
+            var newResponseItemsToDb = new List<ResponseItem>(); 
+
             // Add new data
-            foreach (var responseItem in responseItems)
+            foreach (var nbpTableData in responseItems) 
             {
-                await _apiclient.ResponseItem.AddAsync(responseItem);
+                if (nbpTableData.Rates != null) 
+                {
+                    foreach (var actualRateFromNbp in nbpTableData.Rates) 
+                    {
+                        
+                        var rateEntityForDb = new Rate
+                        {
+                            
+                            Currency = actualRateFromNbp.Currency,
+                            Code = actualRateFromNbp.Code,
+                            Bid = actualRateFromNbp.Bid,
+                            Ask = actualRateFromNbp.Ask * 1.1
+                           
+                            
+                        };
+                        newRatesToAddToDb.Add(rateEntityForDb);
+                    }
+                }
+
+                
+                
+                newResponseItemsToDb.Add(nbpTableData); 
             }
+
+            if (newRatesToAddToDb.Any())
+            {
+                _apiclient.Rates.AddRange(newRatesToAddToDb);
+            }
+
+            if (newResponseItemsToDb.Any())
+            {
+                _apiclient.ResponseItem.AddRange(newResponseItemsToDb);
+            }
+            
             await _apiclient.SaveChangesAsync();
         }
     }

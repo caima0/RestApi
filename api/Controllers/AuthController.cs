@@ -43,7 +43,7 @@ namespace api.Controllers
      [Authorize]
      public IActionResult Secure()
      {
-           return Unauthorized(new {message ="This is a secure endpoint."});
+           return Ok(new {message =$"Hi {_userUserMockService.GetCurrentUser()!.Name} This is a secure endpoint."});
      }
 
    }

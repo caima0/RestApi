@@ -1,9 +1,11 @@
 using api.Data;
 using api.Interfaces;
+using api.Models;
 using api.Repository;
 using api.Service;
 using api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -15,60 +17,74 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        // Add services to the container.
-        // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
         builder.Services.AddControllers();
+        builder.Services.AddHttpContextAccessor();
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen(options=>
+        builder.Services.AddSwaggerGen(option =>
         {
-             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-             {
+            option.SwaggerDoc("v1", new OpenApiInfo { Title = "Demo API", Version = "v1" });
+            option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                In = ParameterLocation.Header,
+                Description = "Please enter a valid token",
                 Name = "Authorization",
                 Type = SecuritySchemeType.Http,
-                Scheme = "Bearer",
                 BearerFormat = "JWT",
-                In = ParameterLocation.Header,
-                Description = "Example header: Bearer {token}"
-
-             });
-             options.AddSecurityRequirement(new OpenApiSecurityRequirement()
-             {  
-                { 
-                  new OpenApiSecurityScheme
-                  {
-                    Reference = new OpenApiReference
+                Scheme = "Bearer"
+            });
+            option.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
                     {
-                     Type = ReferenceType.SecurityScheme,
-                     Id = "Bearer" 
-                    }
-                  },
-                  Array.Empty<string>()
-               
-                   
+                        Reference = new OpenApiReference
+                        {
+                            Type=ReferenceType.SecurityScheme,
+                            Id="Bearer"
+                        }
+                    },
+                    new string[]{}
                 }
-
-             }); 
+            });
         });
 
-        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(option =>
+        builder.Services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme =
+            options.DefaultChallengeScheme =
+            options.DefaultForbidScheme =
+            options.DefaultScheme =
+            options.DefaultSignInScheme =
+            options.DefaultSignOutScheme = JwtBearerDefaults.AuthenticationScheme;
+        }).AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
             {
-                var key = Encoding.UTF8.GetBytes(builder.Configuration.GetRequiredSection("JwtSettings")["SecretKey"] ?? throw new ArgumentNullException());
-                option.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateLifetime = true
-                };
-            });
+                ValidateIssuer = true,
+                ValidIssuer = builder.Configuration["JWT:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = builder.Configuration["JWT:Audience"],
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    System.Text.Encoding.UTF8.GetBytes(builder.Configuration["JWT:SigningKey"] ?? throw new ArgumentNullException("JWT:SigningKey not found in configuration"))
+                )
+            };
+        });
 
         builder.Services.AddDbContext<ApplicationDBContex>(options =>
         {
             options.UseSqlServer(builder.Configuration.GetConnectionString("DeafaultConnection"));
         });
-
+        
+        builder.Services.AddIdentity<User, IdentityRole>(options =>
+        {
+            options.Password.RequireDigit = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireNonAlphanumeric = true;
+            options.Password.RequiredLength = 12;
+        })
+        .AddEntityFrameworkStores<ApplicationDBContex>();
         builder.Services.AddScoped<IRateRepository, RateRepository>();
         builder.Services.AddSingleton<IUserMockInterface, UserMockService>();
         builder.Services.AddHttpClient<INBPClient, NBPClient>();
@@ -83,6 +99,9 @@ internal class Program
         }
 
         app.UseHttpsRedirection();
+
+        app.UseAuthentication();
+        app.UseAuthorization();
 
         app.MapControllers();
 
