@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using static api.Interfaces.ITokenSrvice;
 
 internal class Program
 {
@@ -80,13 +81,14 @@ internal class Program
         {
             options.Password.RequireDigit = true;
             options.Password.RequireLowercase = true;
-            options.Password.RequireUppercase = true;
-            options.Password.RequireNonAlphanumeric = true;
-            options.Password.RequiredLength = 12;
+            options.Password.RequireUppercase = false;
+            options.Password.RequireNonAlphanumeric = false;
+            options.Password.RequiredLength = 6;
         })
         .AddEntityFrameworkStores<ApplicationDBContex>();
         builder.Services.AddScoped<IRateRepository, RateRepository>();
         builder.Services.AddSingleton<IUserMockInterface, UserMockService>();
+        builder.Services.AddScoped<ITokenService, TokenService>();
         builder.Services.AddHttpClient<INBPClient, NBPClient>();
 
         var app = builder.Build();
