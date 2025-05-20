@@ -12,19 +12,19 @@ namespace api.Dtos.PayU
     }
 
     public class TokenResponse
-{
-    [JsonPropertyName("access_token")]
-    public string AccessToken { get; set; }
+    {
+        [JsonPropertyName("access_token")]
+        public string AccessToken { get; set; }
 
-    [JsonPropertyName("expires_in")]
-    public int ExpiresIn { get; set; }
+        [JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
 
-    [JsonPropertyName("token_type")]
-    public string TokenType { get; set; }
+        [JsonPropertyName("token_type")]
+        public string TokenType { get; set; }
 
-    [JsonPropertyName("grant_type")]
-    public string GrantType { get; set; }
-}
+        [JsonPropertyName("grant_type")]
+        public string GrantType { get; set; }
+    }
 
     public class Status
     {
@@ -60,5 +60,17 @@ namespace api.Dtos.PayU
         public string Name { get; set; }
         public string UnitPrice { get; set; }
         public string Quantity { get; set; }
+    }
+
+    public class PayUStatus
+    {
+        [JsonPropertyName("statusCode")]
+        public string StatusCode { get; set; }
+
+        [JsonPropertyName("statusDesc")]
+        public string StatusDesc { get; set; }
+
+        [JsonPropertyName("redirectUri")]
+        public string RedirectUri { get; set; }
     }
 } 

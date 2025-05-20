@@ -27,6 +27,22 @@ namespace api.Controllers
         {
             try
             {
+                // Validate request
+                if (request == null)
+                {
+                    return BadRequest(new { error = "Request body cannot be null" });
+                }
+
+                if (request.Amount <= 0)
+                {
+                    return BadRequest(new { error = "Amount must be greater than zero" });
+                }
+
+                if (string.IsNullOrEmpty(request.Currency))
+                {
+                    return BadRequest(new { error = "Currency is required" });
+                }
+
                 // Get rate from database
                 var rate = await _rateRepository.GetByCodeAsync(request.Currency);
                 
@@ -45,6 +61,16 @@ namespace api.Controllers
                     $"Currency exchange: {request.Amount} {request.Currency} to PLN"
                 );
 
+                if (paymentResponse == null)
+                {
+                    return BadRequest(new { error = "Failed to create payment" });
+                }
+
+                if (string.IsNullOrEmpty(paymentResponse.RedirectUri))
+                {
+                    return BadRequest(new { error = "No payment redirect URL received from PayU" });
+                }
+
                 return Ok(new { 
                     redirectUrl = paymentResponse.RedirectUri,
                     orderId = paymentResponse.OrderId,
@@ -57,9 +83,14 @@ namespace api.Controllers
                     status = paymentResponse.Status
                 });
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Log the full exception details here
+                return StatusCode(500, new { error = "An unexpected error occurred while processing the payment" });
             }
         }
 
@@ -68,31 +99,25 @@ namespace api.Controllers
         {
             try
             {
+                if (string.IsNullOrEmpty(orderId))
+                {
+                    return BadRequest(new { error = "Order ID is required" });
+                }
+
                 var orderStatus = await _payUService.GetOrderStatusAsync(orderId);
+                
+                if (orderStatus == null)
+                {
+                    return NotFound(new { error = $"Order {orderId} not found" });
+                }
+
                 return Ok(orderStatus);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { error = ex.Message });
+                // Log the full exception details here
+                return StatusCode(500, new { error = "An unexpected error occurred while checking order status" });
             }
-        }
-
-        [HttpPost("notify")]
-        public IActionResult Notify([FromBody] PaymentNotification notification)
-        {
-            if (notification?.Orders == null || notification.Orders.Length == 0)
-                return BadRequest("Invalid notification payload.");
-
-            var order = notification.Orders.First();
-
-            // Log or process payment status
-            Console.WriteLine("✅ PayU notification received:");
-            Console.WriteLine($"Order ID: {order.OrderId}");
-            Console.WriteLine($"Ext Order ID: {order.ExtOrderId}");
-            Console.WriteLine($"Status: {order.OrderStatus}");
-            Console.WriteLine($"Amount: {order.TotalAmount} {order.CurrencyCode}");
-
-            return Ok(); 
         }
     }
 } 
