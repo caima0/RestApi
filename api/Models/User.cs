@@ -8,6 +8,6 @@ namespace api.Models
 {
     public class User : IdentityUser
     {
-        // Removed redundant Password property
+        
     }
 }
