@@ -90,6 +90,9 @@ internal class Program
         builder.Services.AddSingleton<IUserMockInterface, UserMockService>();
         builder.Services.AddScoped<ITokenService, TokenService>();
         builder.Services.AddHttpClient<INBPClient, NBPClient>();
+        builder.Services.AddScoped<INBPClient, NBPClient>();
+        builder.Services.AddHttpClient<PayUService>();
+        builder.Services.AddScoped<PayUService>();
 
         var app = builder.Build();
 
