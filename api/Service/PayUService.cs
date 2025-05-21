@@ -24,13 +24,24 @@ namespace api.Services
 
         public PayUService(HttpClient httpClient, IConfiguration configuration)
         {
-            _httpClient = httpClient;
             _posId = configuration["PayU:PosId"];
             _clientId = configuration["PayU:ClientId"];
             _clientSecret = configuration["PayU:ClientSecret"];
-            _baseUrl = configuration["PayU:BaseUrl"];
+            _baseUrl = configuration["PayU:BaseUrl"]?.TrimEnd('/');
             _notifyUrl = configuration["PayU:NotifyUrl"];
-            _httpClient.BaseAddress = new Uri(_baseUrl);
+
+            // Create a new HttpClientHandler with redirects disabled
+            var handler = new HttpClientHandler
+            {
+                AllowAutoRedirect = false
+            };
+            
+            // Create new HttpClient with the handler
+            _httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri(_baseUrl),
+                Timeout = TimeSpan.FromSeconds(30)
+            };
         }
 
         private async Task<string> GetAccessTokenAsync()
@@ -140,122 +151,132 @@ namespace api.Services
 
         public async Task<PayUResponse> CreatePaymentAsync(decimal amount, string currency, string description)
         {
-            // Validate amount
-            if (amount <= 0)
+            try
             {
-                throw new ArgumentException("Amount must be greater than zero", nameof(amount));
-            }
-
-            var accessToken = await GetAccessTokenAsync();
-
-            // Debug payment details
-            Console.WriteLine("\n=== Payment Request Details ===");
-            Console.WriteLine($"Amount: {amount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}");
-            Console.WriteLine($"Currency: {currency}");
-            Console.WriteLine($"Description: {description}");
-            Console.WriteLine($"Converted Amount: {ConvertAmountToLowestCurrencyUnit(amount, currency)}");
-
-            var paymentRequest = new
-            {
-                notifyUrl = _notifyUrl,
-                customerIp = "127.0.0.1",
-                merchantPosId = _posId,
-                description = description,
-                currencyCode = currency,
-                totalAmount = ConvertAmountToLowestCurrencyUnit(amount, currency),
-                extOrderId = Guid.NewGuid().ToString(),
-                buyer = new
+                // Validate amount
+                if (amount <= 0)
                 {
-                    email = "buyer@example.com",
-                    phone = "654111654",
-                    firstName = "John",
-                    lastName = "Doe",
-                    language = "pl"
-                },
-                products = new[]
-                {
-                    new
-                    {
-                        name = description,
-                        unitPrice = ConvertAmountToLowestCurrencyUnit(amount, currency),
-                        quantity = 1
-                    }
-                }
-            };
-
-            var jsonRequest = JsonSerializer.Serialize(paymentRequest, new JsonSerializerOptions { WriteIndented = true });
-            Console.WriteLine("\n=== Payment Request JSON ===");
-            Console.WriteLine(jsonRequest);
-
-            var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
-
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            _httpClient.DefaultRequestHeaders.Authorization = 
-                new AuthenticationHeaderValue("Bearer", accessToken);
-
-            Console.WriteLine("\n=== Sending Payment Request ===");
-            Console.WriteLine($"URL: {_httpClient.BaseAddress}api/v2_1/orders");
-            Console.WriteLine("Headers:");
-            foreach (var header in _httpClient.DefaultRequestHeaders)
-            {
-                Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
-            }
-
-            var response = await _httpClient.PostAsync("api/v2_1/orders", content);
-            
-            var responseContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine("\n=== Payment Response ===");
-            Console.WriteLine($"Status Code: {response.StatusCode}");
-            Console.WriteLine("Response Headers:");
-            foreach (var header in response.Headers)
-            {
-                Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
-            }
-
-            // Check if we got HTML response (payment page)
-            if (responseContent.TrimStart().StartsWith("<!DOCTYPE html", StringComparison.OrdinalIgnoreCase) ||
-                responseContent.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase))
-            {
-                // Extract the redirect URL from the HTML response
-                var redirectUrl = response.Headers.Location?.ToString();
-                if (string.IsNullOrEmpty(redirectUrl))
-                {
-                    // If no redirect URL in headers, try to find it in the HTML
-                    var match = System.Text.RegularExpressions.Regex.Match(responseContent, @"window\.location\.href\s*=\s*['""]([^'""]+)['""]");
-                    if (match.Success)
-                    {
-                        redirectUrl = match.Groups[1].Value;
-                    }
+                    throw new ArgumentException("Amount must be greater than zero", nameof(amount));
                 }
 
-                if (!string.IsNullOrEmpty(redirectUrl))
+                var accessToken = await GetAccessTokenAsync();
+
+                // Debug payment details
+                Console.WriteLine("\n=== Payment Request Details ===");
+                Console.WriteLine($"Amount: {amount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}");
+                Console.WriteLine($"Currency: {currency}");
+                Console.WriteLine($"Description: {description}");
+                Console.WriteLine($"Converted Amount: {ConvertAmountToLowestCurrencyUnit(amount, currency)}");
+
+                var paymentRequest = new
                 {
-                    return new PayUResponse
+                    notifyUrl = _notifyUrl,
+                    customerIp = "127.0.0.1",
+                    merchantPosId = _posId,
+                    description = description,
+                    currencyCode = currency,
+                    totalAmount = ConvertAmountToLowestCurrencyUnit(amount, currency),
+                    extOrderId = Guid.NewGuid().ToString(),
+                    buyer = new
                     {
-                        Status = new Status
+                        email = "buyer@example.com",
+                        phone = "654111654",
+                        firstName = "John",
+                        lastName = "Doe",
+                        language = "pl"
+                    },
+                    products = new[]
+                    {
+                        new
                         {
-                            StatusCode = "SUCCESS",
-                            StatusDesc = "Payment page generated"
-                        },
-                        RedirectUri = redirectUrl
-                    };
+                            name = description,
+                            unitPrice = ConvertAmountToLowestCurrencyUnit(amount, currency),
+                            quantity = 1
+                        }
+                    }
+                };
+
+                var jsonRequest = JsonSerializer.Serialize(paymentRequest, new JsonSerializerOptions { WriteIndented = true });
+                Console.WriteLine("\n=== Payment Request JSON ===");
+                Console.WriteLine(jsonRequest);
+
+                var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new AuthenticationHeaderValue("Bearer", accessToken);
+
+                Console.WriteLine("\n=== Sending Payment Request ===");
+                Console.WriteLine($"URL: {_httpClient.BaseAddress}api/v2_1/orders");
+                Console.WriteLine("Headers:");
+                foreach (var header in _httpClient.DefaultRequestHeaders)
+                {
+                    Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
+                }
+
+                var response = await _httpClient.PostAsync("api/v2_1/orders", content);
+                
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine("\n=== Payment Response ===");
+                Console.WriteLine($"Status Code: {response.StatusCode}");
+                Console.WriteLine("Response Headers:");
+                foreach (var header in response.Headers)
+                {
+                    Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
+                }
+
+                // Handle redirect response
+                if (response.StatusCode == System.Net.HttpStatusCode.Redirect || 
+                    response.StatusCode == System.Net.HttpStatusCode.Found || 
+                    response.StatusCode == System.Net.HttpStatusCode.MovedPermanently)
+                {
+                    var redirectUrl = response.Headers.Location?.ToString();
+                    if (!string.IsNullOrEmpty(redirectUrl))
+                    {
+                        return new PayUResponse
+                        {
+                            Status = new Status
+                            {
+                                StatusCode = "SUCCESS",
+                                StatusDesc = "Payment page generated"
+                            },
+                            RedirectUri = redirectUrl,
+                            OrderId = paymentRequest.extOrderId,
+                            ExtOrderId = paymentRequest.extOrderId
+                        };
+                    }
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"PayU API error: {response.StatusCode} - {responseContent}");
+                }
+
+                try
+                {
+                    var paymentResponse = JsonSerializer.Deserialize<PayUResponse>(responseContent);
+                    if (paymentResponse == null)
+                    {
+                        throw new Exception("Failed to deserialize payment response");
+                    }
+                    return paymentResponse;
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"\n=== JSON Parsing Error ===");
+                    Console.WriteLine($"Error parsing response: {ex.Message}");
+                    Console.WriteLine($"Response content that failed to parse: {responseContent}");
+                    throw new Exception($"Failed to parse payment response: {ex.Message}", ex);
                 }
             }
-
-            if (!response.IsSuccessStatusCode)
+            catch (Exception ex)
             {
-                throw new Exception($"PayU API error: {response.StatusCode} - {responseContent}");
+                Console.WriteLine($"\n=== Payment Creation Error ===");
+                Console.WriteLine($"Error: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+                throw;
             }
-
-            var paymentResponse = JsonSerializer.Deserialize<PayUResponse>(responseContent);
-
-            if (paymentResponse == null)
-            {
-                throw new Exception("Failed to deserialize payment response");
-            }
-
-            return paymentResponse;
         }
 
         public async Task<OrderStatus> GetOrderStatusAsync(string orderId)
@@ -278,7 +299,7 @@ namespace api.Services
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<OrderStatus>(responseContent);
+                return JsonSerializer.Deserialize<OrderStatus>(responseContent)?? throw new Exception("Failed to deserialize order status");
             }
             catch (Exception ex)
             {
