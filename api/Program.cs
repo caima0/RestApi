@@ -18,6 +18,17 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        // Add CORS
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy("AllowReactApp",
+                builder => builder
+                    .WithOrigins("http://localhost:3000")
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials());
+        });
+
         builder.Services.AddControllers();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddEndpointsApiExplorer();
@@ -104,6 +115,9 @@ internal class Program
         }
 
         app.UseHttpsRedirection();
+
+        // Use CORS before authentication and authorization
+        app.UseCors("AllowReactApp");
 
         app.UseAuthentication();
         app.UseAuthorization();
