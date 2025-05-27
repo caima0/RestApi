@@ -7,15 +7,15 @@ namespace api.Dtos.PayU
 {
     public class PaymentNotification
     {
-        public Order[] Orders { get; set; }
+        public required Order[] Orders { get; set; }
 
         public class Order
         {
-            public string OrderId { get; set; }
-            public string ExtOrderId { get; set; }
-            public string OrderStatus { get; set; }
-            public decimal TotalAmount { get; set; }
-            public string CurrencyCode { get; set; }
+            public required string OrderId { get; set; }
+            public required string ExtOrderId { get; set; }
+            public required string OrderStatus { get; set; }
+            public required decimal TotalAmount { get; set; }
+            public required string CurrencyCode { get; set; }
         }
     }
 }
