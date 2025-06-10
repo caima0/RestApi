@@ -27,20 +27,23 @@ namespace api.Repository
 
         public async Task<Rate?> DeleteAsync(string code)
         {
-            var currencieModel = await _apiclient.Rates.FirstOrDefaultAsync(x => x.Code == code);
+            var currencieModel = await _apiclient.Rates.FirstOrDefaultAsync(x => x.Code.ToUpper() == code.ToUpper());   
 
-            if (currencieModel==null)
+            if (currencieModel == null)
             {
-                 return null;
+                return null;
             }
+
             _apiclient.Rates.Remove(currencieModel);
             await _apiclient.SaveChangesAsync();
             return currencieModel;
-        }
+        }   
 
         public async Task<List<Rate>> GetAllAsync()
         {
-           return  await _apiclient.Rates.ToListAsync();
+           return await _apiclient.Rates
+               .Where(r => r.ResponseItemId != null)
+               .ToListAsync();
         }
 
         public async Task<Rate?> GetByIdAsync(int id)

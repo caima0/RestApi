@@ -9,11 +9,14 @@ using api.Mappers;
 using api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace api.Controllers
 {
     [Route("api/Rate")]
     [ApiController]
+    [Authorize]
     public class CurrencieController : ControllerBase
     {
         private readonly ApplicationDBContex  _apiclient;
@@ -48,6 +51,7 @@ namespace api.Controllers
                 return Ok(rate.ToRateDto());
             }
         [HttpPost]
+        [Authorize(Roles = "Admin")]
          public async Task<IActionResult> Create([FromBody] CreateCurencieReaquestDto RateDto)
         {
              var currencieModel = RateDto.ToRateFromCreateDTO();
@@ -57,6 +61,7 @@ namespace api.Controllers
         }
         [HttpPut]
         [Route("{code}")]
+        [Authorize(Roles = "Admin")]
         public  async Task<IActionResult> Update([FromRoute] string code, [FromBody] UpdateCurencieReaquestDto  updateDto)
         {
             var currencieModel =await _rateRepo.UpdateAsync(code,updateDto);
@@ -72,6 +77,7 @@ namespace api.Controllers
         }
         [HttpDelete]
         [Route("{code}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete([FromRoute] string code)
         {
              var currencieModel=await _rateRepo.DeleteAsync(code);
@@ -86,6 +92,7 @@ namespace api.Controllers
         }
 
         [HttpPost("update-from-nbp")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateFromNBP()
         {
             try

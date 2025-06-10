@@ -7,6 +7,8 @@ namespace api.Dtos.Account
         [EmailAddress]
         public string? Email { get; set; }
         
+        public string? Username { get; set; }
+        
         [MinLength(6)]
         public string? NewPassword { get; set; }
     }

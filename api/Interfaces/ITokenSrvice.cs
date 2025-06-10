@@ -6,11 +6,8 @@ using api.Models;
 
 namespace api.Interfaces
 {
-    public interface ITokenSrvice
+    public interface ITokenService
     {
-        public interface ITokenService
-        {
-            string CreateToken(User user);
-        }
+        Task<string> CreateToken(User user);
     }
 }

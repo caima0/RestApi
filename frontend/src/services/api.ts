@@ -9,7 +9,6 @@ const api = axios.create({
     },
 });
 
-// Add token to requests if it exists
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -17,6 +16,18 @@ api.interceptors.request.use((config) => {
     }
     return config;
 });
+
+export interface ForgotPasswordData {
+    email: string;
+    newPassword: string;
+}
+
+export interface CurrencyRate {
+    code: string;
+    currency: string;
+    bid: number;
+    ask: number;
+}
 
 export const authService = {
     login: async (username: string, password: string) => {
@@ -27,6 +38,10 @@ export const authService = {
         const response = await api.post('/Account/register', { username, email, password });
         return response.data;
     },
+    forgotPassword: async (data: ForgotPasswordData) => {
+        const response = await api.post('/Account/forgot-password', data);
+        return response.data;
+    }
 };
 
 export const currencyService = {
@@ -41,6 +56,18 @@ export const currencyService = {
         });
         return response.data;
     },
+    updateRate: async (code: string, data: Partial<CurrencyRate>) => {
+        const response = await api.put(`/Rate/${code}`, data);
+        return response.data;
+    },
+    deleteRate: async (code: string) => {
+        const response = await api.delete(`/Rate/${code}`);
+        return response.data;
+    },
+    updateRatesFromNBP: async () => {
+        const response = await api.post('/Rate/update-from-nbp');
+        return response.data;
+    }
 };
 
 export default api; 

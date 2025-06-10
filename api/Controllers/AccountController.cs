@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using api.Dtos.Account;
+using api.Interfaces;
 using api.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static api.Interfaces.ITokenSrvice;
+using static api.Interfaces.ITokenService;
 
 namespace api.Controllers
 {
@@ -20,9 +21,9 @@ namespace api.Controllers
         private readonly SignInManager<User> _signInManager;
         public AccountController(UserManager<User> userManager, ITokenService tokenService, SignInManager<User> signInManager)
         {
-            _userManager=userManager;
-            _tokenService=tokenService;
-            _signInManager=signInManager;
+            _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
+            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+            _signInManager = signInManager ?? throw new ArgumentNullException(nameof(signInManager));
         }
 
         [HttpGet]
@@ -31,12 +32,19 @@ namespace api.Controllers
             try
             {
                 var users = await _userManager.Users.ToListAsync();
-                var userDtos = users.Select(u => new NewUserDto
+                var userDtos = new List<NewUserDto>();
+
+                foreach (var user in users)
                 {
-                    UserName = u.UserName,
-                    Email = u.Email,
-                    Token = _tokenService.CreateToken(u)
-                }).ToList();
+                    var roles = await _userManager.GetRolesAsync(user);
+                    userDtos.Add(new NewUserDto
+                    {
+                        UserName = user.UserName ?? throw new InvalidOperationException("Username cannot be null"),
+                        Email = user.Email ?? throw new InvalidOperationException("Email cannot be null"),
+                        Token = await _tokenService.CreateToken(user),
+                        Roles = roles.ToList()
+                    });
+                }
 
                 return Ok(userDtos);
             }
@@ -54,11 +62,14 @@ namespace api.Controllers
                 var user = await _userManager.Users.FirstOrDefaultAsync(x => x.UserName == username.ToLower());
                 if (user == null) return NotFound("User not found");
 
+                var roles = await _userManager.GetRolesAsync(user);
+
                 return Ok(new NewUserDto
                 {
-                    UserName = user.UserName,
-                    Email = user.Email,
-                    Token = _tokenService.CreateToken(user)
+                    UserName = user.UserName ?? throw new InvalidOperationException("Username cannot be null"),
+                    Email = user.Email ?? throw new InvalidOperationException("Email cannot be null"),
+                    Token = await _tokenService.CreateToken(user),
+                    Roles = roles.ToList()
                 });
             }
             catch (Exception e)
@@ -67,16 +78,19 @@ namespace api.Controllers
             }
         }
 
-        [HttpPut("{username}")]
-        public async Task<IActionResult> UpdateAccount(string username, [FromBody] UpdateAccountDto updateDto)
+        [HttpPut("{email}")]
+        public async Task<IActionResult> UpdateAccount(string email, [FromBody] UpdateAccountDto updateDto)
         {
             try
             {
-                var user = await _userManager.Users.FirstOrDefaultAsync(x => x.UserName == username.ToLower());
+                var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Email == email.ToLower());
                 if (user == null) return NotFound("User not found");
 
                 if (!string.IsNullOrEmpty(updateDto.Email))
                     user.Email = updateDto.Email;
+
+                if (!string.IsNullOrEmpty(updateDto.Username))
+                    user.UserName = updateDto.Username;
 
                 if (!string.IsNullOrEmpty(updateDto.NewPassword))
                 {
@@ -93,11 +107,14 @@ namespace api.Controllers
                 if (!updateResult.Succeeded)
                     return BadRequest(updateResult.Errors);
 
+                var roles = await _userManager.GetRolesAsync(user);
+
                 return Ok(new NewUserDto
                 {
-                    UserName = user.UserName,
-                    Email = user.Email,
-                    Token = _tokenService.CreateToken(user)
+                    UserName = user.UserName ?? throw new InvalidOperationException("Username cannot be null"),
+                    Email = user.Email ?? throw new InvalidOperationException("Email cannot be null"),
+                    Token = await _tokenService.CreateToken(user),
+                    Roles = roles.ToList()
                 });
             }
             catch (Exception e)
@@ -140,56 +157,91 @@ namespace api.Controllers
 
             if (!result.Succeeded) return Unauthorized("Username not found and/or password incorrect");
 
+            var roles = await _userManager.GetRolesAsync(user);
+
             return Ok(
                 new NewUserDto
                 {
-                    UserName = user.UserName,
-                    Email = user.Email,
-                    Token = _tokenService.CreateToken(user)
+                    UserName = user.UserName ?? throw new InvalidOperationException("Username cannot be null"),
+                    Email = user.Email ?? throw new InvalidOperationException("Email cannot be null"),
+                    Token = await _tokenService.CreateToken(user),
+                    Roles = roles.ToList()
                 }
             );
         }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
         {
-             try{
-                   if(!ModelState.IsValid)
+            try
+            {
+                if (!ModelState.IsValid)
                     return BadRequest(ModelState);
-                   var appUser= new User
-                   {
-                     UserName = registerDto.Username,
-                     Email = registerDto.Email
-                   };
 
-                    var createUser= await _userManager.CreateAsync(appUser, registerDto.Password ?? string.Empty);
+                var appUser = new User
+                {
+                    UserName = registerDto.Username,
+                    Email = registerDto.Email
+                };
 
-                    if(createUser.Succeeded)
+                var createUser = await _userManager.CreateAsync(appUser, registerDto.Password ?? string.Empty);
+
+                if (createUser.Succeeded)
+                {
+                    var roleResult = await _userManager.AddToRoleAsync(appUser, "User");
+                    if (roleResult.Succeeded)
                     {
-                        var roleResult = await _userManager.AddToRoleAsync(appUser, "User");
-                        if(roleResult.Succeeded)
+                        var roles = await _userManager.GetRolesAsync(appUser);
+                        return Ok(new NewUserDto
                         {
-                            return Ok(new NewUserDto
-                            {
-                                UserName = appUser.UserName,
-                                Email = appUser.Email,
-                                Token = _tokenService.CreateToken(appUser)
-                            });
-                        }
-                        else
-                        {
-                            return StatusCode(500, roleResult.Errors);
-                        }
+                            UserName = appUser.UserName ?? throw new InvalidOperationException("Username cannot be null"),
+                            Email = appUser.Email ?? throw new InvalidOperationException("Email cannot be null"),
+                            Token = await _tokenService.CreateToken(appUser),
+                            Roles = roles.ToList()
+                        });
                     }
-                    else 
+                    else
                     {
-                        return StatusCode(500, createUser.Errors);
+                        return StatusCode(500, roleResult.Errors);
                     }
-             } catch(Exception e)
-             {
+                }
+                else
+                {
+                    return StatusCode(500, createUser.Errors);
+                }
+            }
+            catch (Exception e)
+            {
                 return StatusCode(500, e.Message);
-             }
+            }
         }
-        
-    }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
+        {
+            try
+            {
+                var user = await _userManager.Users.FirstOrDefaultAsync(x => x.Email == forgotPasswordDto.Email.ToLower());
+                if (user == null) return NotFound("User not found");
+
+                var removeResult = await _userManager.RemovePasswordAsync(user);
+                if (!removeResult.Succeeded)
+                    return BadRequest(removeResult.Errors);
+
+                var addResult = await _userManager.AddPasswordAsync(user, forgotPasswordDto.NewPassword);
+                if (!addResult.Succeeded)
+                    return BadRequest(addResult.Errors);
+
+                var updateResult = await _userManager.UpdateAsync(user);
+                if (!updateResult.Succeeded)
+                    return BadRequest(updateResult.Errors);
+
+                return Ok(new { message = "Password has been reset successfully" });
+            }
+            catch (Exception e)
+            {
+                return StatusCode(500, e.Message);
+            }
+        }
+    }
 }

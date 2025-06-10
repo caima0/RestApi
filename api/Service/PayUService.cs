@@ -19,24 +19,24 @@ namespace api.Services
         private readonly string _clientSecret;
         private readonly string _baseUrl;
         private readonly string _notifyUrl;
-        private string _accessToken;
+        private readonly string _returnUrl;
+        private string? _accessToken;
         private DateTime _tokenExpiry;
 
         public PayUService(HttpClient httpClient, IConfiguration configuration)
         {
-            _posId = configuration["PayU:PosId"];
-            _clientId = configuration["PayU:ClientId"];
-            _clientSecret = configuration["PayU:ClientSecret"];
-            _baseUrl = configuration["PayU:BaseUrl"]?.TrimEnd('/');
-            _notifyUrl = configuration["PayU:NotifyUrl"];
+            _posId = configuration["PayU:PosId"] ?? throw new ArgumentNullException(nameof(configuration), "PayU:PosId is not configured");
+            _clientId = configuration["PayU:ClientId"] ?? throw new ArgumentNullException(nameof(configuration), "PayU:ClientId is not configured");
+            _clientSecret = configuration["PayU:ClientSecret"] ?? throw new ArgumentNullException(nameof(configuration), "PayU:ClientSecret is not configured");
+            _baseUrl = configuration["PayU:BaseUrl"]?.TrimEnd('/') ?? throw new ArgumentNullException(nameof(configuration), "PayU:BaseUrl is not configured");
+            _notifyUrl = configuration["PayU:NotifyUrl"] ?? throw new ArgumentNullException(nameof(configuration), "PayU:NotifyUrl is not configured");
+            _returnUrl = configuration["PayU:ReturnUrl"] ?? throw new ArgumentNullException(nameof(configuration), "PayU:ReturnUrl is not configured");
 
-            // Create a new HttpClientHandler with redirects disabled
             var handler = new HttpClientHandler
             {
                 AllowAutoRedirect = false
             };
             
-            // Create new HttpClient with the handler
             _httpClient = new HttpClient(handler)
             {
                 BaseAddress = new Uri(_baseUrl),
@@ -54,7 +54,6 @@ namespace api.Services
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             
-            // Debug request details
             Console.WriteLine("=== OAuth Request Details ===");
             Console.WriteLine($"Base URL: {_httpClient.BaseAddress}");
             Console.WriteLine($"Client ID: {_clientId}");
@@ -67,7 +66,6 @@ namespace api.Services
                 new KeyValuePair<string, string>("client_secret", _clientSecret)
             });
 
-            // Debug request headers
             Console.WriteLine("\n=== Request Headers ===");
             foreach (var header in _httpClient.DefaultRequestHeaders)
             {
@@ -81,7 +79,6 @@ namespace api.Services
             Console.WriteLine("\n=== Sending Request ===");
             var response = await _httpClient.PostAsync("pl/standard/user/oauth/authorize", formContent);
             
-            // Debug response details
             Console.WriteLine("\n=== Response Details ===");
             Console.WriteLine($"Status Code: {response.StatusCode}");
             Console.WriteLine($"Response Headers:");
@@ -96,7 +93,6 @@ namespace api.Services
 
             if (!response.IsSuccessStatusCode)
             {
-                // Log unexpected HTML content
                 if (responseContent.TrimStart().StartsWith("<!DOCTYPE html", StringComparison.OrdinalIgnoreCase) ||
                     responseContent.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase))
                 {
@@ -139,13 +135,11 @@ namespace api.Services
 
         private int ConvertAmountToLowestCurrencyUnit(decimal amount, string currency)
         {
-            // Ensure amount is positive
             if (amount <= 0)
             {
                 throw new ArgumentException("Amount must be greater than zero", nameof(amount));
             }
 
-            // Convert to lowest currency unit (cents)
             return (int)Math.Round(amount * 100, MidpointRounding.AwayFromZero);
         }
 
@@ -153,7 +147,6 @@ namespace api.Services
         {
             try
             {
-                // Validate amount
                 if (amount <= 0)
                 {
                     throw new ArgumentException("Amount must be greater than zero", nameof(amount));
@@ -161,7 +154,6 @@ namespace api.Services
 
                 var accessToken = await GetAccessTokenAsync();
 
-                // Debug payment details
                 Console.WriteLine("\n=== Payment Request Details ===");
                 Console.WriteLine($"Amount: {amount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}");
                 Console.WriteLine($"Currency: {currency}");
@@ -177,6 +169,7 @@ namespace api.Services
                     currencyCode = currency,
                     totalAmount = ConvertAmountToLowestCurrencyUnit(amount, currency),
                     extOrderId = Guid.NewGuid().ToString(),
+                    continueUrl = _returnUrl,
                     buyer = new
                     {
                         email = "buyer@example.com",
@@ -226,7 +219,6 @@ namespace api.Services
                     Console.WriteLine($"{header.Key}: {string.Join(", ", header.Value)}");
                 }
 
-                // Handle redirect response
                 if (response.StatusCode == System.Net.HttpStatusCode.Redirect || 
                     response.StatusCode == System.Net.HttpStatusCode.Found || 
                     response.StatusCode == System.Net.HttpStatusCode.MovedPermanently)
@@ -239,7 +231,9 @@ namespace api.Services
                             Status = new Status
                             {
                                 StatusCode = "SUCCESS",
-                                StatusDesc = "Payment page generated"
+                                StatusDesc = "Payment page generated",
+                                Code = "SUCCESS",
+                                CodeLiteral = "PAYMENT_PAGE_GENERATED"
                             },
                             RedirectUri = redirectUrl,
                             OrderId = paymentRequest.extOrderId,
